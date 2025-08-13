@@ -1,100 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
-/**
- * Predictions page. Users pick winners for each match and select one
- * match as their joker (double points). This demo stores selections in
- * component state only.
- */
 function Predictions() {
-  // Sample match card for the upcoming event
-  const matches = [
-    { id: 1, wrestlerA: 'Roman Reigns', wrestlerB: 'Seth Rollins', titleMatch: true },
-    { id: 2, wrestlerA: 'Charlotte Flair', wrestlerB: 'Bayley', titleMatch: true },
-    { id: 3, wrestlerA: 'Rhea Ripley', wrestlerB: 'Becky Lynch', titleMatch: false },
-    { id: 4, wrestlerA: 'Gunther', wrestlerB: 'Cody Rhodes', titleMatch: false },
-  ];
+  const { eventId } = useParams();
+  const [matches, setMatches] = useState([]);
+  const [predictions, setPredictions] = useState({});
+  const [joker, setJoker] = useState(null);
 
-  const [predictedWinners, setPredictedWinners] = useState({});
-  const [jokerMatchId, setJokerMatchId] = useState(null);
-  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    async function fetchMatches() {
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('event_id', eventId);
 
-  const handleWinnerChange = (matchId, winner) => {
-    setPredictedWinners((prev) => ({ ...prev, [matchId]: winner }));
-    setSaved(false);
+      if (error) {
+        console.error('Error fetching matches:', error);
+      } else {
+        setMatches(data);
+      }
+    }
+
+    fetchMatches();
+  }, [eventId]);
+
+  const handlePrediction = (matchId, winner) => {
+    setPredictions({ ...predictions, [matchId]: winner });
   };
 
-  const handleJokerChange = (matchId) => {
-    setJokerMatchId(matchId);
-    setSaved(false);
-  };
-
-  const handleSave = () => {
-    // In a real app this would persist predictions to a backend
-    setSaved(true);
+  const handleSave = async () => {
+    // Later: send predictions to Supabase
+    console.log('Saving predictions:', predictions, 'Joker:', joker);
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <h2 className="text-2xl font-semibold mb-4">Make Your Predictions</h2>
-      <p className="text-sm text-gray-600 mb-6">
-        Select the winner for each match and choose one match as your joker (double points).
-      </p>
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-        {matches.map((match) => {
-          const winner = predictedWinners[match.id] || '';
-          return (
-            <div key={match.id} className="border p-4 rounded-md">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-lg">
-                  {match.wrestlerA} vs. {match.wrestlerB}
-                </h3>
-                {match.titleMatch && (
-                  <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">
-                    Title Match
-                  </span>
-                )}
-              </div>
-              <div className="space-y-2 ml-4">
-                {[match.wrestlerA, match.wrestlerB].map((wrestler) => (
-                  <label key={wrestler} className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name={`winner-${match.id}`}
-                      value={wrestler}
-                      checked={winner === wrestler}
-                      onChange={() => handleWinnerChange(match.id, wrestler)}
-                      className="form-radio text-blue-600"
-                    />
-                    <span>{wrestler}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="mt-3 ml-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="joker"
-                    checked={jokerMatchId === match.id}
-                    onChange={() => handleJokerChange(match.id)}
-                    className="form-radio text-green-600"
-                  />
-                  <span className="text-sm text-green-700">Joker Match</span>
-                </label>
-              </div>
+    <div className="p-4 text-white">
+      <h1 className="text-2xl font-bold mb-4">Make Predictions</h1>
+      {matches.length === 0 ? (
+        <p>No matches found for this event.</p>
+      ) : (
+        matches.map((match) => (
+          <div key={match.id} className="bg-gray-800 p-4 rounded mb-4">
+            <p className="font-bold">{match.wrestler_a} vs {match.wrestler_b}</p>
+            <div className="mt-2">
+              <label>
+                <input
+                  type="radio"
+                  name={`match-${match.id}`}
+                  onChange={() => handlePrediction(match.id, match.wrestler_a)}
+                />
+                {match.wrestler_a}
+              </label>
+              <label className="ml-4">
+                <input
+                  type="radio"
+                  name={`match-${match.id}`}
+                  onChange={() => handlePrediction(match.id, match.wrestler_b)}
+                />
+                {match.wrestler_b}
+              </label>
             </div>
-          );
-        })}
-        <button
-          type="button"
-          onClick={handleSave}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-        >
-          Save Predictions
-        </button>
-        {saved && (
-          <p className="text-green-600 mt-2 text-sm">Your predictions have been saved! (demo only)</p>
-        )}
-      </form>
+            <label className="block mt-2">
+              <input
+                type="radio"
+                name="joker"
+                checked={joker === match.id}
+                onChange={() => setJoker(match.id)}
+              />
+              Make this my Joker match
+            </label>
+          </div>
+        ))
+      )}
+      <button
+        className="bg-purple-600 px-4 py-2 rounded"
+        onClick={handleSave}
+      >
+        Save Predictions
+      </button>
     </div>
   );
 }
